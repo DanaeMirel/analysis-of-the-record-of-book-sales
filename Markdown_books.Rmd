@@ -1,0 +1,476 @@
+---
+title: "Analyse de l'historique de ventes des livres"
+author: "Danae Martinez"
+date: "Dernière mise à jour: `r format(Sys.Date(), '%d %B %Y') `"
+output: 
+  html_document:
+    css: book_style.css
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    number_sections: true
+    
+params:
+  region: Montréal # Capitale-Nationale
+  year: 2019     
+---
+
+```{r, setup, include=FALSE}
+
+library("vcd")
+library("dplyr")
+library("tidyr")
+library("ggplot2")
+library("kableExtra")   # latex tables 
+library("knitr")        
+library("ggthemes")     # ggplot themes 
+library("gridExtra")    
+library("viridis")      # colors 
+library("grid")
+library("plotly")
+library("png")
+library("grid")
+library("jcolors")
+library("lubridate")    # support for dates 
+library("scales")       # fancy scales for graphics 
+
+knitr::opts_chunk$set(warning=FALSE, message = FALSE, fig.align='center', out.width='100%', out.height='80%', echo=FALSE)
+
+```
+
+# Analyse descriptive de l'historique de ventes
+
+Cette analyse a pour but d’explorer le comportement historique de ventes de livres dans la région de `r params$region`. Dans un deuxième temps, nous cherchons à identifier l’impact que le Salon du livre a sur les ventes globales.
+
+```{r, data, include=FALSE}
+
+Data2010_2016 <- readRDS("Data2010_2016.rds")
+Data2017_2019 <- readRDS("Data2017_2019.rds")
+
+colors_magma   <- viridis_pal(option='magma', direction = 1)(30)
+
+colors <- c(colors_magma[1], colors_magma[6], colors_magma[11], colors_magma[16], colors_magma[21], colors_magma[26])
+
+```
+
+```{r, prep_data, include=FALSE}
+
+Data2010_2019 <- bind_rows(Data2010_2016, Data2017_2019) %>% 
+    rename(date = Date
+          ,year = Année
+          ,month = Mois
+          ,day = Jour
+          ,category = Catégorie
+          ,region = Region
+          ,quantity = Q
+          ,amount = M) %>% 
+    mutate(category = factor(category) #, levels = category)
+        ,region = factor(region) #, levels = region)
+        ,year = factor(year, ordered = TRUE)
+        ,month= factor(month
+                       , ordered = TRUE
+                       , levels=c("Janvier"
+                                  , "Février"
+                                  , "Mars"
+                                  , "Avril"
+                                  , "Mai"
+                                  , "Juin"
+                                  , "Juillet"
+                                  , "Août"
+                                  , "Septembre"
+                                  , "Octobre"
+                                  , "Novembre"
+                                  , "Décembre"))
+        ,day = as.integer(day)
+        ,quantity = as.integer(quantity)                  # number of sold units 
+        ,doy = yday(date)
+        ,woy = week(date)
+        ,dow = wday(date, label = TRUE, abbr = FALSE)
+        ,dow = factor(dow, ordered = TRUE, levels = c("dimanche"
+                                                      ,"lundi"
+                                                      ,"mardi"
+                                                      ,"mercredi"
+                                                      , "jeudi"
+                                                      ,"vendredi"
+                                                      ,"samedi"))) %>% 
+        select(date, year, month, day, doy, woy, dow, everything()) %>% 
+        arrange(date)
+```
+
+```{r, overall_sells, include=FALSE}
+
+# total vendu par année pour chaque région
+
+Data2010_2019 <- Data2010_2019 %>% 
+  group_by(year, region) %>% 
+  mutate(overall_year_quantity = sum(quantity)
+        ,overall_year_amount = sum(amount)) %>% 
+  ungroup()
+
+```
+
+```{r, monthly_overall_sells, include=FALSE}
+
+# total vendu par mois pour chaque région
+
+Data2010_2019 <- Data2010_2019 %>% 
+  group_by(year, month, region) %>% 
+  mutate(overall_month_quantity = sum(quantity)
+        ,overall_month_amount = sum(amount)) %>% 
+  ungroup()
+
+```
+
+```{r, weekly_overall_sells, include=FALSE}
+
+# total vendu par semaine pour chaque region
+
+Data2010_2019 <- Data2010_2019 %>% 
+  group_by(year, woy, region) %>% 
+  mutate(overall_week_quantity = sum(quantity)
+        ,overall_week_amount = sum(amount)) %>% 
+  ungroup()
+
+```
+
+```{r, daily_overall_sells, include=FALSE}
+
+# total vendu par jour pour chaque région 
+
+Data2010_2019 <- Data2010_2019 %>% 
+  group_by(year, doy, region) %>% 
+  mutate(daily_overall_quantity = sum(quantity)
+        ,daily_overall_amount = sum(amount)) %>% 
+  ungroup() %>% 
+  arrange(date) 
+
+```
+
+```{r, graphic_setup, include=FALSE}
+
+# general parameters to customize plots 
+
+fancy_scientific <- function(l) {
+  l <- format(l, scientific = TRUE)   # turn in to character string in scientific notation
+  l <- gsub("^(.*)e", "'\\1'e", l)    # quote the part before the exponent to keep all the digits
+  l <- gsub("e", "%*%10^", l)         # turn the 'e+' into plotmath format
+  parse(text=l)                       # return this as an expression
+}
+
+million <- function(x){ 
+  number_format(accuracy = 1
+               ,scale = 1/1000000
+               ,suffix = "M"
+               ,big.mark = ",")(x) 
+  }
+
+ks <- function(x){ 
+  number_format(accuracy = 1
+                ,scale = 1/1000
+                ,suffix = "k"
+                ,big.mark = ",")(x) 
+  }
+
+my_theme <- theme_bw() +   
+  theme(axis.text=element_text(face="bold", size=12)
+       ,axis.title=element_text(face="bold", size=12)
+       ,legend.title = element_text(face="bold", size=12)
+       ,plot.title = element_text(face="bold", size=15))
+
+theme_set(my_theme)
+
+```
+
+```{r, salon_du_livre_id, include=FALSE}
+
+Data2010_2019_Mtl <- Data2010_2019 %>% 
+  filter(region=="Montréal") %>% 
+  mutate(SLM = case_when(year=="2010" & month=="Novembre" & day > 16 & day < 23 ~ "1",
+                         year=="2011" & month=="Novembre" & day > 15 & day < 22 ~ "1",
+                         year=="2012" & month=="Novembre" & day > 13 & day < 20 ~ "1",
+                         year=="2013" & month=="Novembre" & day > 19 & day < 26 ~ "1",
+                         year=="2014" & month=="Novembre" & day > 18 & day < 25 ~ "1",
+                         year=="2015" & month=="Novembre" & day > 17 & day < 24 ~ "1",
+                         year=="2016" & month=="Novembre" & day > 15 & day < 22 ~ "1",
+                         year=="2017" & month=="Novembre" & day > 14 & day < 21 ~ "1",
+                         year=="2018" & month=="Novembre" & day > 13 & day < 20 ~ "1",
+                         year=="2019" & month=="Novembre" & day > 19 & day < 26 ~ "1",
+                         TRUE ~ "0")) # dates où le salon du livre à Montréal a eu lieu 
+
+Data2010_2019_Queb <- Data2010_2019 %>% 
+  filter(region=="Capitale-Nationale") %>% 
+  mutate(SLQ = case_when(year=="2010" & month=="Avril" & day > 6  & day < 12 ~ "1",
+                         year=="2011" & month=="Avril" & day > 12 & day < 18 ~ "1",
+                         year=="2012" & month=="Avril" & day > 10 & day < 16 ~ "1",
+                         year=="2013" & month=="Avril" & day > 9  & day < 15 ~ "1",
+                         year=="2014" & month=="Avril" & day > 8  & day < 14 ~ "1",
+                         year=="2015" & month=="Avril" & day > 7  & day < 13 ~ "1",
+                         year=="2016" & month=="Avril" & day > 12 & day < 18 ~ "1",
+                         year=="2017" & month=="Avril" & day > 4  & day < 10 ~ "1",
+                         year=="2018" & month=="Avril" & day > 10 & day < 16 ~ "1",
+                         year=="2019" & month=="Avril" & day > 9  & day < 15 ~ "1",
+                         TRUE ~ "0")) # dates où le salon du livre à Québec a eu lieu 
+
+```
+
+## Montant de ventes annuelles
+
+Le graphique suivant montre le montant vendu par année entre 2010 et 2019 à `r params$region`. 
+
+```{r, yearly_sales, echo=FALSE}
+
+Data2010_2019 %>% 
+  filter(region==params$region) %>% 
+  select(year, overall_year_amount) %>% 
+  rename(Année=year) %>% 
+  ggplot(aes(x=Année, y=overall_year_amount)) + 
+  geom_segment(aes(xend=Année, yend=0), size=1) +
+  geom_point(size=4, color=colors[3]) + 
+  coord_flip() +
+  scale_y_continuous(labels = million) +
+    labs(title="Montant vendu par année"
+       #,subtitle="Région de Montréal"
+       #,caption="Source: Sodec"
+       ,x="Année"
+       ,y="Montant") 
+
+```
+
+On observe que l'année la plus profitable fut 2016. On observe également que les six dernières années ont été semblables en termes de chiffres annuels. Cependant, il y a une tendance à la baisse depuis 2016. On également remarque que l'année 2011 présente un chiffre de ventes particulièrement haut par rapport aux restes d'années.
+
+## Historique du montant de ventes mensuels
+
+Nous voudrions avoir plus d'informations concernant le volume des ventes historiques. Le graphique ci-dessous montre les tendances historiques des ventes mensuelles. 
+
+```{r, monthly_sales, echo=FALSE}
+
+Data2010_2019 %>% 
+  filter(region==params$region) %>% 
+  rename(Année=year) %>%
+  ggplot(aes(x=month , y=overall_month_amount, group = Année, color= Année)) + 
+  geom_line(size=1) + 
+  scale_color_viridis(discrete = TRUE, option="magma") + 
+  scale_y_continuous(labels=million) +
+  scale_x_discrete(labels = c("janv.", "févr.", "mars", "avr.", "mai", "juin",
+                              "juill.", "août", "sept.", "oct.", "nov.", "déc.")) +
+  theme(axis.text.x = element_text(face="bold", size = 12, angle = 45)) +
+  labs(title="Historique des montants par mois"
+       #,subtitle="Région de Montréal "
+       #,caption="Source: Sodec"
+       ,x="Mois"
+       ,y="Montant")
+
+```
+
+Remarquons que c'est le mois décembre 2011 qui a le record des ventes historiques, suivi de septembre 2016. De façon plus générale, on observe que les trois périodes de pointe sont au mois d’août, au mois de décembre et au mois de janvier.
+
+Le Salon du livre de `r params$region` a lieu au mois de novembre. Nous aimerions savoir si cet événement a un effet sur les ventes. À première vue il n'est pas évident d'affirmer un effet immédiat, mais on essaie de savoir s’il y a des répercussions sur les semaines suivantes à l'événement.
+
+<!--
+
+Dans la région de Québec, nous observons des ventes qui augmentent pendant le mois d'août et restent à leur niveau maximal pendant le mois de septembre. On observe également une croissance au mois de décembre et janvier. L'événement du Salon du livre à Québec a lieu au mois d'avril. 
+
+-->
+
+Les tables suivantes montrent les mois avec plus de ventes pour l'année `r params$year` dans la région de `r params$region`.
+
+## Mois avec plus de ventes
+
+```{r, top_months, echo=FALSE}
+
+create_top_sales_month <- function(city, choosen_year){
+
+  Monthly_sales <- Data2010_2019 %>% 
+    filter(year == choosen_year, region == city)  %>% 
+    select(month, overall_month_amount, overall_month_quantity) %>% 
+    distinct() %>% 
+    arrange(desc(overall_month_amount))
+
+  amount_by_month_per <- round(Monthly_sales[,2]/apply(Monthly_sales[2], 2, sum)*100, 2)
+  quant_by_month_per  <- round(Monthly_sales[,3]/apply(Monthly_sales[3], 2, sum)*100, 2)
+  Monthly_sales_per   <- bind_cols(amount_by_month_per, quant_by_month_per)
+
+  Order_months_perc <-  bind_cols(Monthly_sales, Monthly_sales_per) %>% 
+    rename(mois = month
+          ,montant = overall_month_amount
+          ,quantité = overall_month_quantity
+          ,`montant (%)` = overall_month_amount1 
+          ,`quantité (%)` = overall_month_quantity1) %>% 
+    select(mois, `montant (%)`, montant, `quantité (%)`, quantité)
+
+  return(table = Order_months_perc)
+  }
+
+top_monthly_sales <- create_top_sales_month(city = params$region, choosen_year = params$year)
+
+ head(top_monthly_sales) %>% 
+   knitr::kable(format = "html"
+                , escape = F
+                , digits = 2
+                , align = 'c'
+                , caption = "Montréal 2019")  %>%
+  kable_styling(bootstrap_options = "striped"
+                ,full_width = F
+                , fixed_thead = T) %>%
+   column_spec(1, bold = T, color = "white", background =  colors[3]) 
+
+```
+
+Les mois avec plus des ventes sont décembre, août, septembre et janvier (période de rentrée scolaire et temps de fêtes), mais on observe que le mois de novembre se trouve parmi les mois avec les plus hautes ventes.  
+
+<!-- 
+Dans la région de Québec, on observe également des ventes concentrés aux mois de décembre, août, septembre et janvier, suivis du mois de mai pour les deux dernières années. 
+-->
+
+## Historique des montants de ventes hedomadaires
+
+Essayons d'aller à un niveau plus détaillé, puis regardons le comportement des ventes par semaine, ici les semaines ont été numérotées de 1 à 52.  
+
+```{r, weekly_sales, echo=FALSE}
+
+Data2010_2019 %>% 
+  filter(region==params$region) %>% 
+  rename(Année=year) %>% 
+  ggplot(aes(x=woy , y=overall_week_amount, group = Année, color= Année)) + 
+  geom_line(size=1) + 
+  scale_color_viridis(discrete = TRUE, option="magma") + 
+  scale_y_continuous(labels=million) +
+  labs(title="Historique des montants vendus par semaine"
+       #,subtitle="Région de Montréal "
+       #,caption="Source: Sodec"
+       ,y="Montant"
+       ,x="Semaine de l'année")
+
+```
+
+On observe trois périodes de pointe. Est-ce les deux rentrées scolaires et le temps de fêtes?
+
+## Historique des montants quotidiens vendus
+
+```{r, daily_sales, echo=FALSE}
+
+Data2010_2019 %>% 
+  filter(region==params$region) %>%
+rename(Année=year) %>% 
+  ggplot(aes(x=date , y=daily_overall_amount, group = Année, color= Année)) + 
+  geom_line(size=1) + 
+  scale_color_viridis(discrete = TRUE, option="magma") + 
+  scale_y_continuous(labels=ks) +
+  labs(title="Historique des montants quotidiens "
+       #,subtitle="Région de Montréal"
+       #,caption="Source: Sodec"
+       ,y="Montant"
+       ,x="Date")
+
+```
+
+L'année 2011 est une année avec un comportement atypique. À partir 2013 le comportement des séries semble à être plus stable. C'est pour quoi nous allons considérer l'historique à partir 2013 dans les analyses à venir. Remarquons également la présence d'un comportement saisonnière. 
+
+### Historique des ventes quotidiennes au mois de Novembre
+
+Maintenant concentrons-nous à étudier les ventes au mois de novembre à `r params$region`, soit le mois où le Salon du livre a lieu. 
+```{r, daily_november, echo=FALSE}
+
+year <- c(2010:2019)
+StartDate <- c(17, 16, 14, 20, 19, 18, 16, 15, 14, 20)
+EndDate   <- StartDate + 5
+SLM <- data.frame(year, StartDate, EndDate)
+
+Data2010_2019_Mtl %>%  
+  mutate(`Jour de la semaine` = dow) %>% 
+  filter(month=="Novembre", year %in% c(2013, 2014, 2015)) %>% 
+  ggplot(aes(x=day , y=daily_overall_amount)) + 
+  scale_y_continuous(breaks = seq(10000000,30000000,1000000)) +
+  geom_line(size=1, color=colors[1]) + 
+  geom_point(size=2, aes(color=`Jour de la semaine`)) + 
+  scale_color_viridis(discrete = TRUE, option="magma") +
+  geom_vline(data = SLM[4:6,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) +
+  geom_vline(data = SLM[4:6,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) +
+  facet_grid( year ~.) +
+  labs(title="Montants quotidiens vendus à Montréal"
+       ,subtitle="Novembre"
+       #,caption="Source: Sodec"
+       ,y="Montant"
+       ,x="Jour") +
+  theme(legend.position="bottom") 
+
+```
+
+```{r, daily_november2, echo=FALSE}
+
+Data2010_2019_Mtl %>%  
+  mutate(`Jour de la semaine` = dow) %>% 
+  filter(month=="Novembre", year %in% c(2016, 2017, 2018, 2019)) %>% 
+  ggplot(aes(x=day , y=daily_overall_amount)) + 
+  scale_y_continuous(breaks = seq(10000000,30000000,1000000)) +
+  geom_line(size=1, color=colors[1]) + 
+  geom_point(size=2, aes(color=`Jour de la semaine`)) + 
+  scale_color_viridis(discrete = TRUE, option="magma") +
+  geom_vline(data = SLM[7:10,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) +
+  geom_vline(data = SLM[7:10,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) +
+  facet_grid( year ~.) +
+  labs(title="Montants quotidiens vendus à Montréal"
+       ,subtitle="Novembre"
+       #,caption="Source: Sodec"
+       ,y="Montant"
+       ,x="Jour") +
+  theme(legend.position="bottom") 
+
+```
+
+Nous marquons entre bars les semaines où le salon du livre a eu lieu dans pour chaque année. Comme nous pouvons le constater visuelement, il n'ai pas d'effets évidents du au salon du livre.   
+
+<!-- ### Historique des ventes quotidiennes à Québec au mois d'Avril -->
+
+<!-- ```{r, daily_april, echo=FALSE} -->
+
+<!-- year <- c(2010:2019) -->
+<!-- StartDate <- c(7, 13, 11, 10, 9, 8, 13, 5, 11, 10) -->
+<!-- EndDate   <- StartDate + 5 -->
+<!-- SLQ <- data.frame(year, StartDate, EndDate) -->
+
+<!-- Data2010_2019_Queb %>%  -->
+<!--   mutate(`Jour de la semaine` = dow) %>%  -->
+<!--   filter(month == "Avril", year %in% c(2013, 2014, 2015)) %>%  -->
+<!--   ggplot(aes(x=day , y=daily_overall_amount)) +  -->
+<!--   scale_y_continuous(breaks = seq(10000000,30000000,1000000)) + -->
+<!--   geom_line(size=1, color=colors[1]) +  -->
+<!--   geom_point(size=2, aes(color=`Jour de la semaine`)) +  -->
+<!--   scale_color_viridis(discrete = TRUE, option="plasma") + -->
+<!--   geom_vline(data = SLQ[4:6,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) + -->
+<!--   geom_vline(data = SLQ[4:6,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) + -->
+<!--   facet_grid( year ~.) + -->
+<!--   labs(title="Montants quotidiens vendus à Québec" -->
+<!--        ,subtitle="Avril" -->
+<!--        #,caption="Source: Sodec" -->
+<!--        ,y="Montant" -->
+<!--        ,x="Jour") + -->
+<!--   theme(legend.position="bottom")  -->
+
+<!-- ``` -->
+
+<!-- ```{r, daily_april2, echo=FALSE} -->
+
+<!-- Data2010_2019_Queb %>%   -->
+<!--   mutate(`Jour de la semaine` = dow) %>%  -->
+<!--   filter(month=="Novembre", year %in% c(2016, 2017, 2018, 2019)) %>%  -->
+<!--   ggplot(aes(x=day , y=daily_overall_amount)) +  -->
+<!--   scale_y_continuous(breaks = seq(10000000,30000000,1000000)) + -->
+<!--   geom_line(size=1, color=colors[1]) +  -->
+<!--   geom_point(size=2, aes(color=`Jour de la semaine`)) +  -->
+<!--   scale_color_viridis(discrete = TRUE, option="plasma") + -->
+<!--   geom_vline(data = SLQ[7:10,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) + -->
+<!--   geom_vline(data = SLQ[7:10,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) + -->
+<!--   facet_grid( year ~.) + -->
+<!--   labs(title="Montants quotidiens vendus à Québec" -->
+<!--        ,subtitle="Avril" -->
+<!--        #,caption="Source: Sodec" -->
+<!--        ,y="Montant" -->
+<!--        ,x="Jour") + -->
+<!--   theme(legend.position="bottom")  -->
+
+<!-- ``` -->
+
+## Conclusion
+
+Avec cette analyse descriptive, on peut difficilement voir les effets du Salon du livre. Nous observons un fort comportement saisonnier au niveau de ventes, qui atteint son maximum aux mois d’août-septembre et décembre-janvier. Une hypothèse liée à ces comportements est l'effet des deux périodes de rentrée scolaire et le temps de fêtes. C'est pour quoi, nous envisageons une analyse des catégories les plus vendues par mois afin de décider quelle est la meilleure façon de contrôler d'un tel effet. 
