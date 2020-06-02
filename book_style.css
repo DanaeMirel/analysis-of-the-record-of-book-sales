@@ -1,0 +1,48 @@
+h1.title {
+  font-size: 28px;
+  color: ##681C81FF;
+  text-align: center;
+}
+
+h1 { /* Header 1 */
+  font-size: 26px;
+  color: ##681C81FF;
+}
+
+h2 { /* Header 2 */
+    font-size: 24px;
+  color: #2F1163FF;
+}
+
+h3 { /* Header 3 */
+  font-size: 22px;
+  color: #2F1163FF;
+}
+
+h4.author {
+  font-size: 22px;
+  color: #681C81FF;
+  text-align: center;
+}
+
+h4.date {
+  font-size: 22px;
+  color: #681C81FF;
+  text-align: center;
+}
+body{ /* Normal  */
+      font-size: 20px;
+      background-color: #F5F5F5;
+      color: #4D117BFF;
+  }
+
+td {  /* Table  */
+  font-size: 18px;
+}
+code.r{ /* Code block */ -->
+    font-size: 12px; -->
+}
+
+pre { /* Code block - determines code spacing between lines */
+    font-size: 14px;
+}
