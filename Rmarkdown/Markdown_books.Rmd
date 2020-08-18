@@ -57,17 +57,17 @@ colors <- c(colors_magma[1], colors_magma[6], colors_magma[11], colors_magma[16]
 
 Data2010_2019 <- bind_rows(Data2010_2016, Data2017_2019) %>% 
     rename(date = Date
-          ,year = Année
-          ,month = Mois
-          ,day = Jour
-          ,category = Catégorie
-          ,region = Region
-          ,quantity = Q
-          ,amount = M) %>% 
+          , year = Année
+          , month = Mois
+          , day = Jour
+          , category = Catégorie
+          , region = Region
+          , quantity = Q
+          , amount = M) %>% 
     mutate(category = factor(category) #, levels = category)
-        ,region = factor(region) #, levels = region)
-        ,year = factor(year, ordered = TRUE)
-        ,month= factor(month
+        , region = factor(region) #, levels = region)
+        , year = factor(year, ordered = TRUE)
+        , month= factor(month
                        , ordered = TRUE
                        , levels=c("Janvier"
                                   , "Février"
@@ -81,18 +81,18 @@ Data2010_2019 <- bind_rows(Data2010_2016, Data2017_2019) %>%
                                   , "Octobre"
                                   , "Novembre"
                                   , "Décembre"))
-        ,day = as.integer(day)
-        ,quantity = as.integer(quantity)                  # number of sold units 
-        ,doy = yday(date)
-        ,woy = week(date)
-        ,dow = wday(date, label = TRUE, abbr = FALSE)
-        ,dow = factor(dow, ordered = TRUE, levels = c("dimanche"
-                                                      ,"lundi"
-                                                      ,"mardi"
-                                                      ,"mercredi"
+        , day = as.integer(day)
+        , quantity = as.integer(quantity)                  # number of sold units 
+        , doy = yday(date)
+        , woy = week(date)
+        , dow = wday(date, label = TRUE, abbr = FALSE)
+        , dow = factor(dow, ordered = TRUE, levels = c("dimanche"
+                                                      , "lundi"
+                                                      , "mardi"
+                                                      , "mercredi"
                                                       , "jeudi"
-                                                      ,"vendredi"
-                                                      ,"samedi"))) %>% 
+                                                      , "vendredi"
+                                                      , "samedi"))) %>% 
         select(date, year, month, day, doy, woy, dow, everything()) %>% 
         arrange(date)
 ```
@@ -104,7 +104,7 @@ Data2010_2019 <- bind_rows(Data2010_2016, Data2017_2019) %>%
 Data2010_2019 <- Data2010_2019 %>% 
   group_by(year, region) %>% 
   mutate(overall_year_quantity = sum(quantity)
-        ,overall_year_amount = sum(amount)) %>% 
+       , overall_year_amount = sum(amount)) %>% 
   ungroup()
 
 ```
@@ -116,7 +116,7 @@ Data2010_2019 <- Data2010_2019 %>%
 Data2010_2019 <- Data2010_2019 %>% 
   group_by(year, month, region) %>% 
   mutate(overall_month_quantity = sum(quantity)
-        ,overall_month_amount = sum(amount)) %>% 
+       , overall_month_amount = sum(amount)) %>% 
   ungroup()
 
 ```
@@ -128,7 +128,7 @@ Data2010_2019 <- Data2010_2019 %>%
 Data2010_2019 <- Data2010_2019 %>% 
   group_by(year, woy, region) %>% 
   mutate(overall_week_quantity = sum(quantity)
-        ,overall_week_amount = sum(amount)) %>% 
+       , overall_week_amount = sum(amount)) %>% 
   ungroup()
 
 ```
@@ -140,7 +140,7 @@ Data2010_2019 <- Data2010_2019 %>%
 Data2010_2019 <- Data2010_2019 %>% 
   group_by(year, doy, region) %>% 
   mutate(daily_overall_quantity = sum(quantity)
-        ,daily_overall_amount = sum(amount)) %>% 
+       , daily_overall_amount = sum(amount)) %>% 
   ungroup() %>% 
   arrange(date) 
 
@@ -159,23 +159,23 @@ fancy_scientific <- function(l) {
 
 million <- function(x){ 
   number_format(accuracy = 1
-               ,scale = 1/1000000
-               ,suffix = "M"
-               ,big.mark = ",")(x) 
+               , scale = 1/1000000
+               , suffix = "M"
+               , big.mark = ",")(x) 
   }
 
 ks <- function(x){ 
   number_format(accuracy = 1
-                ,scale = 1/1000
-                ,suffix = "k"
-                ,big.mark = ",")(x) 
+                , scale = 1/1000
+                , suffix = "k"
+                , big.mark = ",")(x) 
   }
 
 my_theme <- theme_bw() +   
   theme(axis.text=element_text(face="bold", size=12)
-       ,axis.title=element_text(face="bold", size=12)
-       ,legend.title = element_text(face="bold", size=12)
-       ,plot.title = element_text(face="bold", size=15))
+       , axis.title=element_text(face="bold", size=12)
+       , legend.title = element_text(face="bold", size=12)
+       , plot.title = element_text(face="bold", size=15))
 
 theme_set(my_theme)
 
@@ -185,17 +185,17 @@ theme_set(my_theme)
 
 Data2010_2019_Mtl <- Data2010_2019 %>% 
   filter(region=="Montréal") %>% 
-  mutate(SLM = case_when(year=="2010" & month=="Novembre" & day > 16 & day < 23 ~ "1",
-                         year=="2011" & month=="Novembre" & day > 15 & day < 22 ~ "1",
-                         year=="2012" & month=="Novembre" & day > 13 & day < 20 ~ "1",
-                         year=="2013" & month=="Novembre" & day > 19 & day < 26 ~ "1",
-                         year=="2014" & month=="Novembre" & day > 18 & day < 25 ~ "1",
-                         year=="2015" & month=="Novembre" & day > 17 & day < 24 ~ "1",
-                         year=="2016" & month=="Novembre" & day > 15 & day < 22 ~ "1",
-                         year=="2017" & month=="Novembre" & day > 14 & day < 21 ~ "1",
-                         year=="2018" & month=="Novembre" & day > 13 & day < 20 ~ "1",
-                         year=="2019" & month=="Novembre" & day > 19 & day < 26 ~ "1",
-                         TRUE ~ "0")) # dates où le salon du livre à Montréal a eu lieu 
+  mutate(SLM = case_when(year=="2010" & month=="Novembre" & day > 16 & day < 23 ~ "1"
+                         , year=="2011" & month=="Novembre" & day > 15 & day < 22 ~ "1"
+                         , year=="2012" & month=="Novembre" & day > 13 & day < 20 ~ "1"
+                         , year=="2013" & month=="Novembre" & day > 19 & day < 26 ~ "1"
+                         , year=="2014" & month=="Novembre" & day > 18 & day < 25 ~ "1"
+                         , year=="2015" & month=="Novembre" & day > 17 & day < 24 ~ "1"
+                         , year=="2016" & month=="Novembre" & day > 15 & day < 22 ~ "1"
+                         , year=="2017" & month=="Novembre" & day > 14 & day < 21 ~ "1"
+                         , year=="2018" & month=="Novembre" & day > 13 & day < 20 ~ "1"
+                         , year=="2019" & month=="Novembre" & day > 19 & day < 26 ~ "1"
+                         , TRUE ~ "0")) # dates où le salon du livre à Montréal a eu lieu 
 
 Data2010_2019_Queb <- Data2010_2019 %>% 
   filter(region=="Capitale-Nationale") %>% 
