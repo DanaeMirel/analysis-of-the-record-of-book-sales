@@ -1,0 +1,108 @@
+### Historique des ventes quotidiennes au mois de Novembre
+
+Maintenant concentrons-nous à étudier les ventes au mois de novembre à `r params$region`, soit le mois où le Salon du livre a lieu. 
+```{r, daily_november, echo=FALSE}
+
+year <- c(2010:2019)
+StartDate <- c(17, 16, 14, 20, 19, 18, 16, 15, 14, 20)
+EndDate   <- StartDate + 5
+SLM <- data.frame(year, StartDate, EndDate)
+
+Data2010_2019_Mtl %>%  
+  mutate(`Jour de la semaine` = dow) %>% 
+  filter(month=="Novembre", year %in% c(2013, 2014, 2015)) %>% 
+  ggplot(aes(x=day , y=daily_overall_amount)) + 
+  scale_y_continuous(breaks = seq(10000000,30000000,1000000)) +
+  geom_line(size=1, color=colors[1]) + 
+  geom_point(size=2, aes(color=`Jour de la semaine`)) + 
+  scale_color_viridis(discrete = TRUE, option="magma") +
+  geom_vline(data = SLM[4:6,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) +
+  geom_vline(data = SLM[4:6,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) +
+  facet_grid( year ~.) +
+  labs(title="Montants quotidiens vendus à Montréal"
+       ,subtitle="Novembre"
+       #,caption="Source: Sodec"
+       ,y="Montant"
+       ,x="Jour") +
+  theme(legend.position="bottom") 
+
+```
+
+```{r, daily_november2, echo=FALSE}
+
+Data2010_2019_Mtl %>%  
+  mutate(`Jour de la semaine` = dow) %>% 
+  filter(month=="Novembre", year %in% c(2016, 2017, 2018, 2019)) %>% 
+  ggplot(aes(x=day , y=daily_overall_amount)) + 
+  scale_y_continuous(breaks = seq(10000000,30000000,1000000)) +
+  geom_line(size=1, color=colors[1]) + 
+  geom_point(size=2, aes(color=`Jour de la semaine`)) + 
+  scale_color_viridis(discrete = TRUE, option="magma") +
+  geom_vline(data = SLM[7:10,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) +
+  geom_vline(data = SLM[7:10,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) +
+  facet_grid( year ~.) +
+  labs(title="Montants quotidiens vendus à Montréal"
+       ,subtitle="Novembre"
+       #,caption="Source: Sodec"
+       ,y="Montant"
+       ,x="Jour") +
+  theme(legend.position="bottom") 
+
+```
+
+Nous marquons entre bars les semaines où le salon du livre a eu lieu dans pour chaque année. Comme nous pouvons le constater visuelement, il n'ai pas d'effets évidents du au salon du livre.   
+
+<!-- ### Historique des ventes quotidiennes à Québec au mois d'Avril -->
+  
+  <!-- ```{r, daily_april, echo=FALSE} -->
+  
+  <!-- year <- c(2010:2019) -->
+  <!-- StartDate <- c(7, 13, 11, 10, 9, 8, 13, 5, 11, 10) -->
+  <!-- EndDate   <- StartDate + 5 -->
+  <!-- SLQ <- data.frame(year, StartDate, EndDate) -->
+  
+  <!-- Data2010_2019_Queb %>%  -->
+  <!--   mutate(`Jour de la semaine` = dow) %>%  -->
+  <!--   filter(month == "Avril", year %in% c(2013, 2014, 2015)) %>%  -->
+  <!--   ggplot(aes(x=day , y=daily_overall_amount)) +  -->
+  <!--   scale_y_continuous(breaks = seq(10000000,30000000,1000000)) + -->
+  <!--   geom_line(size=1, color=colors[1]) +  -->
+  <!--   geom_point(size=2, aes(color=`Jour de la semaine`)) +  -->
+  <!--   scale_color_viridis(discrete = TRUE, option="plasma") + -->
+  <!--   geom_vline(data = SLQ[4:6,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) + -->
+  <!--   geom_vline(data = SLQ[4:6,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) + -->
+  <!--   facet_grid( year ~.) + -->
+  <!--   labs(title="Montants quotidiens vendus à Québec" -->
+                <!--        ,subtitle="Avril" -->
+                <!--        #,caption="Source: Sodec" -->
+                <!--        ,y="Montant" -->
+                <!--        ,x="Jour") + -->
+  <!--   theme(legend.position="bottom")  -->
+  
+  <!-- ``` -->
+  
+  <!-- ```{r, daily_april2, echo=FALSE} -->
+  
+  <!-- Data2010_2019_Queb %>%   -->
+  <!--   mutate(`Jour de la semaine` = dow) %>%  -->
+  <!--   filter(month=="Novembre", year %in% c(2016, 2017, 2018, 2019)) %>%  -->
+  <!--   ggplot(aes(x=day , y=daily_overall_amount)) +  -->
+  <!--   scale_y_continuous(breaks = seq(10000000,30000000,1000000)) + -->
+  <!--   geom_line(size=1, color=colors[1]) +  -->
+  <!--   geom_point(size=2, aes(color=`Jour de la semaine`)) +  -->
+  <!--   scale_color_viridis(discrete = TRUE, option="plasma") + -->
+  <!--   geom_vline(data = SLQ[7:10,], mapping = aes(xintercept = StartDate), linetype="solid", size=0.5) + -->
+  <!--   geom_vline(data = SLQ[7:10,], mapping = aes(xintercept = EndDate), linetype="solid", size=0.5) + -->
+  <!--   facet_grid( year ~.) + -->
+  <!--   labs(title="Montants quotidiens vendus à Québec" -->
+                <!--        ,subtitle="Avril" -->
+                <!--        #,caption="Source: Sodec" -->
+                <!--        ,y="Montant" -->
+                <!--        ,x="Jour") + -->
+  <!--   theme(legend.position="bottom")  -->
+  
+  <!-- ``` -->
+  
+## Conclusion
+  
+Avec cette analyse descriptive, on peut difficilement voir les effets du Salon du livre. Nous observons un fort comportement saisonnier au niveau de ventes, qui atteint son maximum aux mois d’août-septembre et décembre-janvier. Une hypothèse liée à ces comportements est l'effet des deux périodes de rentrée scolaire et le temps de fêtes. C'est pour quoi, nous envisageons une analyse des catégories les plus vendues par mois afin de décider quelle est la meilleure façon de contrôler d'un tel effet. 
